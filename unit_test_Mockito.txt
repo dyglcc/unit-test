@@ -1,0 +1,464 @@
+1.Mockito侧重点是纯Java代码的测试：方法调用mock，指定方法行为，截取参数，截取Callback回调
+，所谓Mock一个对象，其实可以理解成一个对象的动态代理，然后偷梁换柱改变其属性和方法行为，也就是说如果你想改变谁的行为和属性你就要mock谁
+
+
+@RunWith(RobolectricTestRunner.class)
+@Config(constants = BuildConfig.class,sdk = Build.VERSION_CODES.LOLLIPOP)
+public class QxMockitActvityTest {
+
+    private QxMockitActvity mMockitActvity;
+    private Button mbtn;
+    @Mock
+    private QxNetMananger mMananger;
+    @Mock
+    private QxVertifyUrl mVertifyUrl;
+
+    @Before
+    public void setUp() throws Exception {
+
+        ShadowLog.stream=System.out;//启动测试的时候所有的Log日志都输出
+        MockitoAnnotations.initMocks(this);//初始化Mockit
+
+        //QxMockitActvity中的QxNetMananger和QxVertifyUrl都是从QxAppNetModle这里得到的，
+          //所以我们从这里开始Mock才能保证
+        //QxMockitActvity中的QxNetMananger和QxVertifyUrl也是mock的
+        QxAppNetModle netModle=Mockito.mock(QxAppNetModle.class);
+
+        when(netModle.provideNetManager()).thenReturn(mMananger);
+        when(netModle.provideVertifyUrl()).thenReturn(mVertifyUrl);
+
+        mMockitActvity= Robolectric.setupActivity(QxMockitActvity.class);//启动Activity
+        mbtn= (Button) mMockitActvity.findViewById(R.id.btn_changge);
+
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        mMockitActvity.finish();
+        mMockitActvity=null;
+    }
+
+    @Test
+    public void testload(){
+        //第一次触发返回true，第二次触发返回false，第三次触发返回true
+//        when(mVertifyUrl.vertifyUrl(anyString())).thenReturn(true).thenReturn(false)
+.thenReturn(true);
+        //下面也可以直接用thenAnther代替thenReturn 用Anther的好处就是可以判对参数然后再做出方案
+        when(mVertifyUrl.vertifyUrl(anyString())).thenAnswer(new Answer<Boolean>() {
+            @Override
+            public Boolean answer(InvocationOnMock invocation) throws Throwable {
+                Object[] argments = invocation.getArguments();
+                String str= (String) argments[0];
+                if(str.equals("wr"))return false;
+                return true;
+            }
+        }).thenAnswer(new Answer<Boolean>() {
+            @Override
+            public Boolean answer(InvocationOnMock invocation) throws Throwable {
+                Object[] argments = invocation.getArguments();
+                String str= (String) argments[0];
+                if(str.equals("qr"))return true;
+                return false;
+            }
+        }).thenAnswer(new Answer<Boolean>() {
+            @Override
+            public Boolean answer(InvocationOnMock invocation) throws Throwable {
+                Object[] argments = invocation.getArguments();
+                String str= (String) argments[0];
+                if(str.equals("qr"))return false;
+                return true;
+            }
+        });
+
+        //mVertifyUrl不是mock的而是spy比如Mockito.spy(QxVertifyUrl.class)就要用doReturn和doAnther
+
+
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                Object[] arguments = invocation.getArguments();//得到截取方法所有的参数
+                //QxNetCallback是方法的第二个参数
+                QxNetMananger.QxNetCallback callback= (QxNetMananger.QxNetCallback) arguments[1];
+                //模拟成功了
+                callback.onSuccess("qx");
+                Log.e("Qx","qx");
+                return "wr";
+            }
+        }).when(mMananger).load(anyString(), Mockito.any(QxNetMananger.QxNetCallback.class));
+
+
+        mbtn.performClick();
+        mbtn.performClick();
+        mbtn.performClick();
+        //验证是否调用了俩次
+        verify(mMananger,times(2)).load(anyString(),Mockito.any(QxNetMananger.QxNetCallback.class));
+
+    }
+}
+
+2. PowerMock是Mockito的升级版，它除了有Mockito的大部分功能外，还有几个特殊功能：mock私有属性和方法  测试私有属性和方法  
+    mock final修饰的方法  mockStatic静态方法  还有就是它还可以whenNew来mock方法内部实例化的变量，然后像傀儡一样操作它。
+    说他只有Mockito大部分的功能是因为我测试了下doAnther窃取CallBack参数，操作回调方法不成功，还有就是对android方法的支持欠缺
+
+
+    @RunWith(PowerMockRunner.class)//表明用 PowerMockerRunner来运行测试用例，否则无法使用PowerMock
+@PrepareForTest({QXPowerMockDemo.class, QXPowerMockStatic.class})//所有需要测试的类，列在此处，以逗号分隔,静态方法的类最好也在这里列举
+@PowerMockIgnore("javax.management.*")//为了解决使用powermock后，提示classloader错误
+public class QXPowerMockDemoTest {
+
+    @Mock
+    private QXPowerMockCommon mPowerMockCommon;
+
+    @InjectMocks
+    private QXPowerMockDemo mMockDemo;
+    private String str="test";
+    //final 与普通方法一样mock，但是需要将其所在class添加到@PrepareForTest注解中，我就不写例子了
+    @Test
+    public void testGetData() throws Exception{
+        //mock普通对象的普通方法
+        when(mPowerMockCommon.isEmpty(str)).thenReturn(false);
+        assertEquals(mPowerMockCommon.isEmpty(str),false);
+
+        //mock对象的静态方法
+        mockStatic(QXPowerMockStatic.class);
+        when(QXPowerMockStatic.isEmpty(str)).thenReturn(false);
+        assertEquals(QXPowerMockStatic.isEmpty(str),false);
+//        QXStringUtil stringUtil=mock(QXStringUtil.class);
+//        when(stringUtil.creatNewString("QXPowerMockStatic")).thenReturn("QXPowerMockStaticqx");
+//        assertEquals("QXPowerMockStaticqx",stringUtil.creatNewString("QXPowerMockStatic"));
+
+        //窃取方法内部new的新对象然后改变其属性值 比如方法中new一个List我们也可以截取给其赋值
+        QXStringUtil stringUtil=new QXStringUtil();
+            stringUtil.name="qx";
+
+        whenNew(QXStringUtil.class).withNoArguments().thenReturn(stringUtil);
+
+        assertEquals(stringUtil.creatNewString("wr"),"wrqx");
+        mMockDemo.getData(str);
+        assertEquals("no eq ",mMockDemo.name,"QXPowerMockStaticqx");
+
+
+    }
+
+    //测试私有方法
+    @Test
+    public void testSetName() throws Exception {
+        Whitebox.invokeMethod(mMockDemo,"setName","wr");
+
+        assertEquals("wr",mMockDemo.name);
+    }
+
+    //mock 私有方法然后调用
+
+    @Test
+    public void testPrivateMethod() throws Exception{
+        //mock私有方法时对象也要变成mock的不能是全局的 测试私有方法和mock私有方法是不一样的
+
+        QXPowerMockPrivate powerMockPrivate=mock(QXPowerMockPrivate.class);
+
+       QXPowerMockDemo demo=mock(QXPowerMockDemo.class);
+
+        Whitebox.setInternalState(mMockDemo,"mMockPrivate",powerMockPrivate);//给私有变量赋值可以用全局的但是要统一
+
+        //when(powerMockPrivate.getString()).thenReturn("old");//测试mock的私有属性对象
+
+//        when(mMockDemo,"privateMethodMock").thenReturn(false);//测试mock的私有方法 不用mock自己mock的用全局的会报错的
+        when(demo,"privateMethodMock").thenReturn(false);//测试mock的私有方法 用mock自己mock的不用全局的
+//        assertEquals(mMockDemo.publicMethodMock(),false);
+        assertEquals(demo.publicMethodMock(),false);
+
+
+
+    }
+//final 与普通方法一样mock，但是需要将其所在class添加到@PrepareForTest注解中，我就不写例子了
+
+
+    @Test
+    public void testAnser() throws Exception {//窃取回调接口测试失败 暂时走不通看来只能用Mockito了
+
+        doAnswer(new Answer<Object>() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+
+                Object[] agrments = invocation.getArguments();
+
+                QXPowerMockDemo.QXPowerMockCallback callback= (QXPowerMockDemo.QXPowerMockCallback) agrments[1];
+
+                callback.onOk("OKOK");
+                return str;
+            }
+        }).when(mPowerMockCommon).dataFromNet(str,mock(QXPowerMockDemo.QXPowerMockCallback.class));
+
+        mMockDemo.netData(str);
+        assertEquals("OKOK",mMockDemo.name);
+    }
+}
+
+
+3.Robolectric这是一个专门测试android系统类相关的东西的，比如UI点击事件，Actvity和Service等四大组件生命
+周期，Dialog，Application，Bitmap，Resouce等进行行为测试，它之所以能测试他们，其实也是Mock了这些对
+象，然后可以动态代理这些对象，不过他用的不是mock,而是ShadowXX，Android系统的每个几乎都有一个相对应
+的ShadowXX，我们测试的时候得到对应的ShadowXX就可以像操作傀儡一样操纵原来的对象了，就连Loop都有
+ShadowLoop专门用来测试的时候操作和调度线程的。
+
+
+@RunWith(RobolectricTestRunner.class)
+@Config(constants = BuildConfig.class, sdk = Build.VERSION_CODES.LOLLIPOP)
+//@Config(constants = BuildConfig.class, sdk = Build.VERSION_CODES.LOLLIPOP)
+public class QXUnitTestActvityTest {
+    private QXUnitTestActvity mActvity;
+    private Button mbtn;
+    private TextView mTv;
+
+    /**
+     * 线程管理和调度者
+     */
+    private CountDownLatch runFlag;
+    long count;
+    @Test
+    public void testCountDownLatch(){
+
+        runFlag=new CountDownLatch(1);//表示run+1
+      count = runFlag.getCount();//是1
+
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                //模拟网络请求或者一个耗时业务
+
+                //完成后
+                runFlag.countDown();//run-1
+                count=runFlag.getCount();//是0
+            }
+        },6000);
+
+        try {
+            /**
+             * 一直等待5秒后或者count==0时才会执行下面的Log，要不然就会一直在这里阻塞
+             */
+            boolean b=runFlag.await(5000, TimeUnit.MILLISECONDS);
+
+            if(b){
+                //表示是等待的时间还没到5s，count就等于零了，就不用等待了
+            }else{
+                //表示count还大于零，但是已经等待的时间大于或者等于5s了，所以也不等待了
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        Log.e("flag","上面的工作终于做完了");
+    }
+
+
+    @Before
+    public void setUp() {
+
+        //加上这么一句话无论是测试代码中的log或者被测试中的log都会在控制台输出的
+        ShadowLog.stream = System.out;
+
+        Log.d("Test_log", "开启了log日志");
+
+
+        //相当于启动了actvity 经过了 oncreate，onStart和onResume这三个生命周期
+        //一般只是在启动activiy的时候调用
+        mActvity = Robolectric.setupActivity(QXUnitTestActvity.class);
+        mbtn = (Button) mActvity.findViewById(R.id.btn_changge);
+        mTv = (TextView) mActvity.findViewById(R.id.textView);
+    }
+
+    @After
+    public void tearDown() {
+        mActvity = null;
+        mbtn = null;
+        mTv = null;
+    }
+
+    //测试启动初始化是否成功
+    @Test
+    public void testInit() {
+        Assert.assertEquals("actvity packageName is error", "com.ran.qxlinechart", mActvity.getPackageName());
+        Assert.assertNotNull("button is null", mbtn);
+        Assert.assertNotNull("testView is null", mTv);
+        Assert.assertEquals("textView text is error", "text", mTv.getText().toString());
+    }
+
+    //测试点击事件是否相应
+    @Test
+    public void testClickButton() {
+        mbtn.performClick();
+        Assert.assertEquals("textView text is error", "我被修改了", mTv.getText().toString());
+    }
+
+    //测试Actvity生命周期的调用
+    @Test
+    public void testLifecycleMethods() throws InterruptedException {
+        ActivityController<QXUnitTestActvity> controller = Robolectric.buildActivity(QXUnitTestActvity.class);
+
+        QXUnitTestActvity actvity = (QXUnitTestActvity) controller.get();
+        //所有的生命周期都可以模仿但是这里的actviy一定是controller里get得到的，
+        // 不能用mActvity因为全局的那个是tartUp的更生命周期的这个不是一个
+        controller.create();
+        Assert.assertEquals("create", actvity.name);
+
+        controller.start();
+        Assert.assertEquals("start", actvity.name);
+
+        controller.resume();
+        Assert.assertEquals("jump", actvity.name);
+
+        controller.pause();
+        Assert.assertEquals("pause", actvity.name);
+
+        controller.stop();
+        Assert.assertEquals("stop", actvity.name);
+
+        controller.destroy();
+
+        Assert.assertEquals("destroy", actvity.name);
+        mbtn.performClick();
+        Assert.assertEquals("textView text is error", "我被修改了", mTv.getText().toString());
+
+
+    }
+
+    //Fragment是继承app.Fragment 生命周期
+    @Test
+    public void testFragmentLifecyle() {
+
+        FragmentController<QxFramentApp> controller = Robolectric.buildFragment(QxFramentApp.class);
+
+
+        QxFramentApp framentApp = controller.get();
+        controller.create();////这样一步就走到了onCreatView不仅仅走了onCraete
+        Assert.assertEquals("createView", framentApp.name);
+
+        controller.start();
+        Assert.assertEquals("start", framentApp.name);
+
+        controller.resume();
+        Assert.assertEquals("resume", framentApp.name);
+
+        controller.destroy();
+        Assert.assertEquals("destroy", framentApp.name);
+
+    }
+
+    //测试Actvity的跳转
+    @Test
+    public void testStartActiviy() {
+        mbtn.performClick();
+        Assert.assertEquals("textView text is error", "我被修改了", mTv.getText().toString());
+//        mActvity.name="jump"; 使用这个是错误的
+
+//        ActivityController<QXUnitTestActvity> controller=Robolectric.buildActivity(QXUnitTestActvity.class).create().start();//已经走到resume了
+//
+//        QXUnitTestActvity actvity= (QXUnitTestActvity) controller.get();
+//        actvity.name="jump";也是行不通的
+        //只能在自己的生命周期里更改name
+        ShadowApplication shadowApplication = ShadowApplication.getInstance();
+        //表示shadowApplication.getNextStartedActivity()不能是null（notNullValue()）如果是null就会报错，然后提示"next actvity is null shoud  not jump"
+//        Assert.assertThat("next actvity is null shoud  not jump",shadowApplication.getNextStartedActivity(),is(notNullValue()));
+
+        //或许用下面这个来验证 用上面注释的一条验证最简单
+        Intent expIntent = new Intent(mActvity, MSCurrentInvestActivity.class);
+
+        Intent act = shadowApplication.getNextStartedActivity();
+//如果两者不同就会报错提示
+        Assert.assertEquals("不是从mActvity跳转到MSCurrentInvestActivity或者是携带的数据不一样", expIntent.getComponent(), act.getComponent());
+    }
+
+    //Fragment是继承v4的 测试Fragment添加初始化是否成功
+    @Test
+    public void testFragment() {
+
+        QxFragment fragment = new QxFragment();
+
+        //把Fragment添加到Activity中，并且启动Fragment，触发他的生命周期函数OnCreateView
+
+        SupportFragmentTestUtil.startFragment(fragment);
+        Bundle bundle = fragment.getArguments();
+
+        Assert.assertThat("fragment not start success", fragment.getView(), is(notNullValue()));
+    }
+
+    //测试模拟延迟任务的执行
+    @Test
+    public void testDelayTask() {
+        Assert.assertFalse(mActvity.mCount == 6);//此时没有走线程呢所以不会是6
+
+        mbtn.performClick();
+
+        //利用Looper的影子来安排任务的执行，这也符合Android的架构情况
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();//等待UI delay的Tasks运行完毕然后再往下执行
+        //ShadowLooper.idleMainLooper();等待mainLooper执行完毕
+        //ShadowLooper.idleMainLooper(1,TimeUnit.SECONDS);等待1秒mainLooper执行完毕
+//        ShadowLooper.runMainLooperOneTask();运行mainLooper的一个任务
+//        ShadowLooper.runMainLooperToNextTask();
+//        ShadowLooper.runUiThreadTasks();//运行Ui上的tasks
+        //用ShadowLooper来管理运行Android的线程
+        Assert.assertTrue(mActvity.mCount == 6);
+    }
+
+    /**
+     * ShadowXX其实就是这个XX的影子，代理或者是复制品  有N个ShadowXX，比如ShadowApplication,ShadowActvity,ShadowToast
+     * ShadowListView,ShadowLinearLayout,ShadowBitmap等，也就是说只要Android有的类几乎都有相应的影子Shadow。也就是说只要我们
+     * 有了一个类的Shadow我们就相当于有了这个类，而且功能更强大，毕竟是经过了，包装的了，创建一个类的Shadow也很容易：
+     * ShadowActivity shadowActivity= Shadows.shadowOf(mActvity);
+     * View vie= shadowActivity.getContentView();
+     */
+    @Test
+    public void testBroadCast() {
+        ShadowApplication shadowApplication = ShadowApplication.getInstance();
+        Intent intent = new Intent("com.wr.qx.ok");
+        Assert.assertTrue(shadowApplication.hasReceiverForIntent(intent));//是否已经注册action是"com.wr.qx.ok"的广播
+
+        //模拟注册广播后 激发广播后的操作
+
+        QxBroacastReceiver receiver = new QxBroacastReceiver();
+        receiver.onReceive(RuntimeEnvironment.application, intent);
+
+        //检查接到广播后是否启动了context.startActivity(new Intent(context, MSCurrentInvestActivity.class));
+
+        Assert.assertThat("没有收到广播 然后启动actvity", shadowApplication.getNextStartedActivity(), is(notNullValue()));
+    }
+
+    @Test
+    public void testDialog() {
+        mbtn.performClick();
+        Dialog dialog = ShadowDialog.getLatestDialog();
+        Assert.assertNotNull("dialog not creat", dialog);
+        dialog.dismiss();
+        Assert.assertTrue(!dialog.isShowing());
+    }
+
+    @Test
+    public void testAlertDialog() {
+        mbtn.performClick();
+        AlertDialog alertDialog = ShadowAlertDialog.getLatestAlertDialog();
+        Assert.assertNotNull("dialog not creat", alertDialog);
+        alertDialog.dismiss();
+        Assert.assertTrue(!alertDialog.isShowing());
+
+    }
+
+    @Test
+    public void testToast() {
+        mbtn.performClick();
+
+        Assert.assertNotNull("not invote Toast", ShadowToast.getLatestToast());
+        String toastText = ShadowToast.getTextOfLatestToast();
+        Assert.assertEquals("toast error", "hello", toastText);
+    }
+
+    //测试模拟资源文件的获取
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    @Test
+    public void testReadResouce() {
+        Application application = RuntimeEnvironment.application;
+        Drawable drawable = application.getDrawable(R.mipmap.ic_launcher);
+    }
+
+
+}
+

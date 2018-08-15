@@ -1,0 +1,39 @@
+mock 技术使用场景是在现有代码已经开发完成，需要做代码测试覆盖。
+如果是开发阶段去开发的话，最好使用测试驱动开发，
+
+
+
+
+Espresso是一个新工具，相对于其他工具，API更加精确。并且规模更小、更简洁并且容易学习。它最初是2013年GTAC大会上推出的，目标是让开发者写出更简洁的针对APP的UI测试代码。
+
+Espresso作为Google推出的Instrumentation UI测试框架，在API支持方面有着天然的优势，在推出后很大程度上替代了Robotium。而Robolectric由于只在Java虚拟机中运行，速度很快，虽然在API支持上无法和Espresso相比，但速度有很大优势，适合单元测试，尤其是TDD时使用。
+
+powerMock 依赖
+
+
+
+InstrumentationRegistry.getContext(); test runner包里面可以模拟context
+
+
+
+
+Android官方现在提供了两种测试途径Android Unit Test 和Android Instrument Test。本篇主要介绍他们各自的运行方式，测试结果和测试覆盖率结果生成方式，以及在项目中如何同时使用它们。
+
+Android Unit Test: 脱离emulator和device独立运行在jvm的测试方式。如果想mock更多的Android元件则必须需要Robolectric框架支持，但是测试用例的行为都是运行在Robolectric所建立的仿真Android运行环境中，例如mock packageManager，camera支持的返回信息。
+
+Android Instrument Test: 它是运行在emulator和device上的测试方式，测试用例中所有的行为都是经过android framework验证的，主要的第三方框架支持为Espresso和Robotium。
+
+两种测试方式可以同时在项目中使用，Android Unit Test负责逻辑验证，Android Instrument Test负责验证在真实环境下的逻辑执行(smoke test就够了)。
+
+两种测试方式可以同时在项目中使用，Android Unit Test负责逻辑验证，Android Instrument Test负责验证在真实环境下的逻辑执行(smoke test就够了)。
+
+
+
+Android的单元测试可以分为两部分：
+
+Local unit tests：运行于本地JVM
+Instrumented test：运行于真机或者模拟器
+roboelctric 使用
+
+https://blog.csdn.net/shensky711/article/details/53561172
+

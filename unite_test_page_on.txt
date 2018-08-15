@@ -1,0 +1,21 @@
+各个工具类简单介绍
+单元测试好处
+单元测试业界标准
+xp极限编程作者
+tdd作者，大概内容
+实战一些东西，
+
+
+概述
+Android的单元测试可以分为两部分：
+
+Local unit tests：运行于本地JVM
+Instrumented test：运行于真机或者模拟器
+如果使用Local测试，需要保证测试过程中不会调用Android系统API，否则会抛出RuntimeException异常，因为Local测试是直接跑在本机JVM的，而之所以我们能使用Android系统API，是因为编译的时候，我们依赖了一个名为“android.jar”的jar包，但是jar包里所有方法都是直接抛出了一个RuntimeException，是没有任何任何实现的，这只是Android为了我们能通过编译提供的一个Stub！当APP运行在真实的Android系统的时候，由于类加载机制，会加载位于framework的具有真正实现的类。由于我们的Local是直接在PC上运行的，所以调用这些系统API便会出错。 
+那么问题来了，我们既要使用Local测试，但测试过程又难免遇到调用系统API那怎么办？其中一个方法就是mock objects，比如借助Mockito，另外一种方式就是使用Robolectric， Robolectric就是为解决这个问题而生的。它实现一套JVM能运行的Android代码，然后在unit test运行的时候去截取android相关的代码调用，然后转到他们的他们实现的Shadow代码去执行这个调用的过程
+
+roboelectric 依赖junit4，monitor，kxml2，support-annotation
+
+testRunner
+
+在实际测试中，尤其是针对大批量的回归测试，因不能保证一次测试的完整性，一次测试同一批用例都可能需要反复的进行测试与验证，而之所以需要反复测试的原因不仅仅是被测系统的的缺陷，还有很多的是由于用例本身的错误而导致测试的失败，那么针对这些需要反复进行修改、复测的用例，就需要一个统一的管理和维护，而本平台则是围绕这一主要环节进行展开，采用bug分析表跟踪、testLog测试日志记录及web报告查看的方式，对测试失败的用例进行准确地定位和统一地管理，进而简化测试执行工作的复杂度与琐碎性，同时也保证测试的准确度及其能有序进行。
