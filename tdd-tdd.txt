@@ -24,4 +24,8 @@ https://zh.wikipedia.org/wiki/%E6%9E%81%E9%99%90%E7%BC%96%E7%A8%8B
 
 正常的功能开发，代码设计写码，tdd，代码先行。
 
-常用的断言命令，asertEquals assethat
+常用的断言命令，
+asertEquals asserthat 
+assertTrue,assertFalse
+verfy验证是否调用
+mock 概念
